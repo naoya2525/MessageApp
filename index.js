@@ -1,4 +1,3 @@
-
 const express = require('express');
 const Sequelize = require('sequelize');
 
@@ -38,11 +37,9 @@ const Messages = sequelize.define('messages', {
   message: Sequelize.TEXT
 },
   {
-    // timestamps: false,      // disable the default timestamps
-    freezeTableName: true   // stick to the table name we define
+    freezeTableName: true
   }
 );
-
 
 (async () => {
   try {
@@ -52,12 +49,15 @@ const Messages = sequelize.define('messages', {
   } catch (error) {
     console.error("Error synchronizing the database:", error);
   }
-}
-)();
+})();
 
 lastMessage = "";
+
+const { Op } = Sequelize;  // ここでOpを取得
+
 function setupRoute() {
   console.log("db connection succeeded");
+
   app.get('/', (req, res) => {
     res.render('top.ejs');
   });
@@ -81,16 +81,39 @@ function setupRoute() {
 
   app.get('/view', async (req, res) => {
     try {
-      result = await Messages.findAll();
+      const result = await Messages.findAll();
       console.log(result);
-      allMessages = result.map((e) => {
-        return e.message + " " + e.createdAt;
-      });
+      let allMessages = result.map((e) => e.message + " " + e.createdAt);
       res.render('view.ejs', { messages: allMessages });
     } catch (error) {
       res.send("error");
     }
   });
-};
+
+  // ここから追加
+
+  app.get('/search', (req, res) => {
+    res.render('search.ejs', { results: [] });
+  });
+
+  app.post('/search', async (req, res) => {
+    try {
+      const result = await Messages.findAll({
+        where: {
+          message: {
+            [Op.regexp]: req.body.searchText
+          }
+        }
+      });
+      let searchResults = result.map((e) => e.message + " " + e.createdAt);
+      res.render('search.ejs', { results: searchResults });
+    } catch (error) {
+      console.error("Error during search:", error);
+      res.send("error");
+    }
+  });
+
+  // ここまで追加
+}
 
 app.listen(process.env.PORT || PORT);
